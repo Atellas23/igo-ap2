@@ -55,10 +55,11 @@ def download_congestions(congestions_url):
     congestions = list()
     with urllib.request.urlopen(congestions_url) as response:
         lines = [l.decode('utf-8') for l in response.readlines()]
-        reader = csv.reader(lines, delimiter=',', quotechar='"')
-        next(reader)  # ignore first line with description
+        reader = csv.reader(lines, delimiter='#', quotechar='"')
         for line in reader:
-            congestions.append(line)
+            way_id, timestamp, current_state, future_state = line
+            congestions.append(
+                [int(way_id), timestamp, int(current_state), int(future_state)])
             # way_id, description, coordinates = line
             # print(way_id, description, coordinates)
             # sleep(4)
