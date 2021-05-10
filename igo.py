@@ -45,7 +45,10 @@ def download_highways(highways_url):
         next(reader)  # ignore first line with description
         for line in reader:
             way_id, description, coordinates = line
-            highways.append([int(way_id), description, coordinates])
+            coord = coordinates.split(',')
+            l = len(coord)
+            highways.append([int(way_id), description, float(coord[1]),
+                             float(coord[0]), float(coord[l-1]), float(coord[l-2])])
             # print(way_id, description, coordinates)
             # sleep(4)
     return highways
