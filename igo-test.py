@@ -47,6 +47,7 @@ test()
 # %%
 highways = download_highways(HIGHWAYS_URL)
 congestions = download_congestions(CONGESTIONS_URL)
+graph = load_graph(GRAPH_FILENAME)
 print(len(highways))
 print(len(congestions))
 # %%
@@ -58,4 +59,40 @@ for node1, info1 in graph.nodes.items():
         print('    ', node2)
         print('        ', edge)
     sleep(5)
+# %%
+complete_traffic_state_data = list()
+n = len(highways)
+highway = highways[int(n/2)]
+
+
+def find_corresponding_congestion_data(highway):
+    corresponding_congestion_data = None
+    for cong in congestions:
+        if cong[0] == highway[0]:
+            corresponding_congestion_data = cong
+            break
+    return corresponding_congestion_data
+
+
+congest = find_corresponding_congestion_data(highway)
+id, name, orig_lat, orig_lng, dest_lat, dest_lng = highway
+_, datetime, current_state, _ = congest
+complete_traffic_state_data.append(
+    [id, name, orig_lat, orig_lng, dest_lat, dest_lng, datetime, current_state])
+
+
+# %%
+def repack(highway, congestion):
+    id, name, orig_lat, orig_lng, dest_lat, dest_lng = highway
+    _, datetime, current_state, _ = congestion
+    return [id, name, orig_lat, orig_lng, dest_lat, dest_lng, datetime, current_state]
+
+
+def build_complete_traffic_data(highways, congestions):
+    complete_traffic_state_data = list()
+    for highway in highways:
+        congestion = find_corresponding_congestion_data(highway)
+        repacked_data = repack(highway, congestion)
+        complete_traffic_state_data.append(repacked_data)
+    return complete_traffic_state_data
 # %%
