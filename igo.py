@@ -1,10 +1,17 @@
+from re import template
 from time import sleep
 import pickle
 import networkx as nx
 import osmnx as ox
 import csv
 import urllib
-from functools import reduce
+from staticmap import StaticMap, Line, CircleMarker
+import collections
+
+Traffic_data = collections.namedtuple(
+    'TData', ['id', 'name', 'coordinates', 'timestamp', 'state'])
+Congestion = collections.namedtuple('Congestion', ['id', 'timestamp', 'state'])
+Highway = collections.namedtuple('Highway', ['id', 'name', 'coordinates'])
 
 
 def exists_graph(graph_filename):
@@ -46,11 +53,8 @@ def download_highways(highways_url):
         for line in reader:
             way_id, description, coordinates = line
             coord = coordinates.split(',')
-            l = len(coord)
-            highways.append([int(way_id), description, float(coord[1]),
-                             float(coord[0]), float(coord[l-1]), float(coord[l-2])])
-            # print(way_id, description, coordinates)
-            # sleep(4)
+            highways.append(Highway(int(way_id), description,
+                            [float(g) for g in coord]))
     return highways
 
 
@@ -60,21 +64,79 @@ def download_congestions(congestions_url):
         lines = [l.decode('utf-8') for l in response.readlines()]
         reader = csv.reader(lines, delimiter='#', quotechar='"')
         for line in reader:
-            way_id, timestamp, current_state, future_state = line
-            congestions.append(
-                [int(way_id), timestamp, int(current_state), int(future_state)])
-            # way_id, description, coordinates = line
-            # print(way_id, description, coordinates)
-            # sleep(4)
+            way_id, timestamp, current_state, _ = line
+            congestions.append(Congestion(
+                int(way_id), timestamp, int(current_state)))
     return congestions
 
 
-def plot_highways(highways, img_filename, size):
-    pass
+def find_corresponding_congestion_data(highway, congestions):
+    corresponding_congestion_data = None
+    for cong in congestions:
+        if cong.id == highway.id:
+            corresponding_congestion_data = cong
+            break
+    return corresponding_congestion_data
 
 
-def plot_congestions(highways, congestions, img_filename, size):
-    pass
+def repack(highway, congestion):
+    id, name, coordinates = highway
+    _, datetime, current_state = congestion
+    return Traffic_data(id, name, coordinates, datetime, current_state)
+
+
+def build_complete_traffic_data(highways, congestions):
+    complete_traffic_state_data = list()
+    for highway in highways:
+        congestion = find_corresponding_congestion_data(highway, congestions)
+        repacked_data = repack(highway, congestion)
+        complete_traffic_state_data.append(repacked_data)
+    return complete_traffic_state_data
+
+
+def plot_highways(highways, img_filename='temp_highways_plot.png', size=800):
+    m_bcn = StaticMap(size, size)
+    for highway in highways:
+        for i in range(0, len(highway.coordinates), 2):
+            marker = CircleMarker(
+                (highway.coordinates[i], highway.coordinates[i+1]), 'red', 3)
+            m_bcn.add_marker(marker)
+            if (i + 3 < len(highway.coordinates)):
+                m_bcn.add_line(
+                    Line(((highway.coordinates[i], highway.coordinates[i+1]), (highway.coordinates[i+2], highway.coordinates[i+3])), 'blue', 2))
+
+    image = m_bcn.render()
+    image.save(img_filename)
+
+
+def color_decide(state):
+    if state == 0:
+        return 'grey'
+    if state == 1:
+        return '#00ff00'
+    if state == 2:
+        return '#aaff00'
+    if state == 3:
+        return '#ffe600'
+    if state == 4:
+        return '#ff8000'
+    if state == 5:
+        return '#ff1100'
+
+
+def plot_congestions(traffic_data, img_filename='temp_congestions_plot.png', size=800):
+    m_bcn = StaticMap(size, size)
+    for highway in traffic_data:
+        for i in range(0, len(highway.coordinates), 2):
+            marker = CircleMarker(
+                (highway.coordinates[i], highway.coordinates[i+1]), 'black', 1)
+            m_bcn.add_marker(marker)
+            if (i + 3 < len(highway.coordinates)):
+                m_bcn.add_line(Line(((highway.coordinates[i], highway.coordinates[i+1]), (highway.coordinates[i+2], highway.coordinates[i+3])),
+                                    color_decide(highway.state), 3))
+
+    image = m_bcn.render()
+    image.save(img_filename)
 
 
 def plot_path(igraph, ipath, img_filename, size):
