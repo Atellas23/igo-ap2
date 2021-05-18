@@ -1,3 +1,5 @@
+from re import template
+from time import sleep
 import pickle
 import networkx as nx
 import osmnx as ox
@@ -12,9 +14,7 @@ Congestion = collections.namedtuple('Congestion', ['id', 'timestamp', 'state'])
 Highway = collections.namedtuple('Highway', ['id', 'name', 'coordinates'])
 
 
-def exists_graph(graph_filename: str) -> bool:
-    '''Checks if a certain graph file exists within the working directory.
-    '''
+def exists_graph(graph_filename):
     try:
         open(graph_filename, 'rb')
     except FileNotFoundError:
@@ -41,7 +41,7 @@ def save_graph(G, filename):
 
 def plot_graph(G):
     fig, ax = ox.plot_graph(nx.MultiDiGraph(incoming_graph_data=G))
-    fig.savefig('tmp_graph.png')
+    fig.savefig('temp_graph_img.png')
 
 
 def download_highways(highways_url):
