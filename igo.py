@@ -1,5 +1,6 @@
 import pickle
 import networkx as nx
+from networkx.algorithms.clique import graph_number_of_cliques
 import osmnx as ox
 import csv
 import urllib
@@ -122,6 +123,8 @@ def color_decide(state):
         return '#ff8000'
     if state == 5:
         return '#ff1100'
+    if state == 6 or state == None:
+        return '#6042f5'
 
 
 def plot_congestions(traffic_data, img_filename='tmp_congestion_plot.png', size=800):
@@ -139,8 +142,37 @@ def plot_congestions(traffic_data, img_filename='tmp_congestion_plot.png', size=
     image.save(img_filename)
 
 
+def _set_congestion(tdata: Traffic_data, graph):
+    coord = tdata.coordinates
+    l = len(coord)
+    edge_nodes_lat = list()
+    edge_nodes_lng = list()
+    for i in range(0, l, 2):
+        edge_nodes_lat.append(coord[i])
+        edge_nodes_lng.append(coord[i+1])
+    nn = ox.nearest_nodes(graph, edge_nodes_lat, edge_nodes_lng)
+    for i in range(1, len(nn)):
+        orig = nn[i-1]
+        dest = nn[i]
+        try:
+            path = ox.shortest_path(graph, orig, dest, weight='length')
+        except:
+            try:
+                path = ox.shortest_path(graph, dest, orig, weight='length')
+            except:
+                print(
+                    'no he trobat cap camí entre {a} i {b} :('.format(a=orig, b=dest))
+        for i in range(1, len(path)):
+            a = path[i-1]
+            b = path[i]
+            graph.adj[a][b][0]['congestion'] = tdata.state
+    return
+
+
 def build_igraph(graph, traffic_data):
-    pass
+    nx.set_edge_attributes(graph, name='congestion', values=None)
+    for data in traffic_data:
+        _set_congestion(data, graph)
 
 
 def plot_path(igraph, ipath, img_filename, size):

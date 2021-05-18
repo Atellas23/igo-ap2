@@ -15,31 +15,105 @@ complete_data = build_complete_traffic_data(highways, congestions)
 plot_graph(graph)
 plot_highways(highways)
 plot_congestions(complete_data)
+# %%
 
+
+def plot_path(graph, path):
+    orig = path[0]
+    dest = path[len(path)-1]
+    node_colors = list()
+    for node in graph.nodes:
+        if node == orig or node == dest:
+            node_colors.append('green')
+        elif node in path:
+            node_colors.append('red')
+        else:
+            node_colors.append('white')
+    ox.plot_graph(graph, figsize=(20, 20), node_size=3,
+                  node_color=node_colors, show=False, save=True, filepath='tmp_path.png')
 
 # %%
-def map_data_to_graph(data, graph: nx.MultiDiGraph):
-    # for dd in data:
-    dd = data[int(len(data)/2)]
-    print('estem al carrer', dd.name, sep=' ')
-    coord = dd.coordinates
+
+
+def prop(tdata: Traffic_data, graph):
+    coord = tdata.coordinates
     l = len(coord)
-    print('    passa pels següents nodes:')
     edge_nodes_lat = list()
     edge_nodes_lng = list()
     for i in range(0, l, 2):
         edge_nodes_lat.append(coord[i])
         edge_nodes_lng.append(coord[i+1])
-        # c1 = coord[i]
-        # c2 = coord[i+1]
     nn = ox.nearest_nodes(graph, edge_nodes_lat, edge_nodes_lng)
-    node_colors = [
-        'red' if node in nn else 'white' for node in graph.nodes]
-    print(node_colors.index('red'))
-    for node in nn:
-        print('     -->', node)
-    ox.plot_graph(graph, node_color=node_colors, node_size=3, figsize=(800,800))
+    for i in range(1, len(nn)):
+        orig = nn[i]
+        dest = nn[i-1]
+        path = ox.shortest_path(graph, orig, dest, weight='length')
+        # print(path)
+        # plot_path(graph, path)
+        return
     return
+
+# %%
+
+
+def _set_congestion(tdata: Traffic_data, graph):
+    coord = tdata.coordinates
+    l = len(coord)
+    edge_nodes_lat = list()
+    edge_nodes_lng = list()
+    stupid_nodes = list()
+    for i in range(0, l, 2):
+        edge_nodes_lat.append(coord[i])
+        edge_nodes_lng.append(coord[i+1])
+    nn = ox.nearest_nodes(graph, edge_nodes_lat, edge_nodes_lng)
+    for i in range(1, len(nn)):
+        orig = nn[i-1]
+        dest = nn[i]
+        # print('hola', orig, dest, sep=' ')
+        try:
+            path = ox.shortest_path(graph, orig, dest, weight='length')
+        except:
+            try:
+                path = ox.shortest_path(graph, dest, orig, weight='length')
+            except:
+                print(
+                    'no he trobat cap camí entre {a} i {b} :('.format(a=orig, b=dest))
+                stupid_nodes.append(orig)
+                stupid_nodes.append(dest)
+        # print('adeu', orig, dest, sep=' ')
+        for i in range(1, len(path)):
+            a = path[i-1]
+            b = path[i]
+            graph.adj[a][b][0]['congestion'] = tdata.state
+    return stupid_nodes
+
+
+def build_igraph(graph, traffic_data):
+    nx.set_edge_attributes(graph, name='congestion', values=None)
+    stupid_nodes_2 = list()
+    for data in traffic_data:
+        test = _set_congestion(data, graph)
+        stupid_nodes_2.append(test)
+    return stupid_nodes_2
+
+
+# %%
+non_nodes = build_igraph(graph, complete_data)
+node_colors = list()
+for node in graph.nodes:
+    if node in non_nodes:
+        node_colors.append('purple')
+    else:
+        node_colors.append('white')
+
+edge_colors = list()
+for edge, info in graph.edges.items():
+    if info['congestion'] is not None:
+        edge_colors.append(color_decide(info['congestion']))
+    else:
+        edge_colors.append('white')
+ox.plot_graph(graph, figsize=(20, 20), node_size=3, node_color=node_colors,
+              edge_color=edge_colors, save=True, filepath='tmp_tmp_tmp.png')
 
 # %%
 
