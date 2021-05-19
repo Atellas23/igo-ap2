@@ -1,5 +1,6 @@
 # %%
 from time import sleep
+
 from igo import *
 PLACE = 'Barcelona, Catalonia'
 GRAPH_FILENAME = 'barcelona.graph'
@@ -97,6 +98,39 @@ def build_igraph(graph, traffic_data):
     return stupid_nodes_2
 
 
+# %%
+
+def build_ipath(igraph, origin, destiny):
+    origin = origin + ', Barcelona'
+    destiny = destiny + ', Barcelona'
+    nn_origin = ox.nearest_nodes(
+        igraph, ox.geocode(origin)[1], ox.geocode(origin)[0])
+    nn_destiny = ox.nearest_nodes(
+        igraph, ox.geocode(destiny)[1], ox.geocode(destiny)[0])
+    
+    return ox.shortest_path(igraph,nn_origin,nn_destiny, weight="length")
+
+def plot_path(igraph, ipath, img_filename, size):
+    m_bcn = StaticMap(size, size)
+    try:
+        origin_marker = CircleMarker((
+            igraph.nodes[ipath[0]]['x'], igraph.nodes[ipath[0]]['y']),'grey',9)
+        destiny_marker = CircleMarker((
+            igraph.nodes[ipath[-1]]['x'], igraph.nodes[ipath[-1]]['y']), 'green', 9)
+        m_bcn.add_marker(origin_marker)
+        m_bcn.add_marker(destiny_marker)
+
+    except:
+        print('There is no path')
+    for i in range(0, len(ipath)):
+        if (i + 1 < len(ipath)):
+            line = Line(((igraph.nodes[ipath[i]]['x'], igraph.nodes[ipath[i]]['y']), (igraph.nodes[ipath[i+1]]['x'], igraph.nodes[ipath[i+1]]['y'])), '#0884ff', 3)
+            m_bcn.add_line(line)
+            
+
+    image = m_bcn.render()
+    image.save(img_filename)
+
 # %%
 non_nodes = build_igraph(graph, complete_data)
 node_colors = list()
@@ -115,8 +149,8 @@ for edge, info in graph.edges.items():
 ox.plot_graph(graph, figsize=(20, 20), node_size=3, node_color=node_colors,
               edge_color=edge_colors, save=True, filepath='tmp_tmp_tmp.png')
 
-# %%
 
+# %%
 
 def test():
     # load/download graph (using cache) and plot it on the screen
