@@ -16,43 +16,13 @@ complete_data = build_complete_traffic_data(highways, congestions)
 plot_graph(graph)
 plot_highways(highways)
 plot_congestions(complete_data)
-# %%
-
-
-def plot_path(graph, path):
-    orig = path[0]
-    dest = path[len(path)-1]
-    node_colors = list()
-    for node in graph.nodes:
-        if node == orig or node == dest:
-            node_colors.append('green')
-        elif node in path:
-            node_colors.append('red')
-        else:
-            node_colors.append('white')
-    ox.plot_graph(graph, figsize=(20, 20), node_size=3,
-                  node_color=node_colors, show=False, save=True, filepath='tmp_path.png')
+build_igraph(graph, complete_data)
+path = build_ipath(graph, 'FME', 'Velòdrom d\'Horta')
+plot_path(graph, path)
 
 # %%
-
-
-def prop(tdata: Traffic_data, graph):
-    coord = tdata.coordinates
-    l = len(coord)
-    edge_nodes_lat = list()
-    edge_nodes_lng = list()
-    for i in range(0, l, 2):
-        edge_nodes_lat.append(coord[i])
-        edge_nodes_lng.append(coord[i+1])
-    nn = ox.nearest_nodes(graph, edge_nodes_lat, edge_nodes_lng)
-    for i in range(1, len(nn)):
-        orig = nn[i]
-        dest = nn[i-1]
-        path = ox.shortest_path(graph, orig, dest, weight='length')
-        # print(path)
-        # plot_path(graph, path)
-        return
-    return
+path2 = build_ipath(graph, 'FME', 'Vallvidrera')
+plot_path(graph, path2)
 
 # %%
 
@@ -70,7 +40,6 @@ def _set_congestion(tdata: Traffic_data, graph):
     for i in range(1, len(nn)):
         orig = nn[i-1]
         dest = nn[i]
-        # print('hola', orig, dest, sep=' ')
         try:
             path = ox.shortest_path(graph, orig, dest, weight='length')
         except:
@@ -81,7 +50,6 @@ def _set_congestion(tdata: Traffic_data, graph):
                     'no he trobat cap camí entre {a} i {b} :('.format(a=orig, b=dest))
                 stupid_nodes.append(orig)
                 stupid_nodes.append(dest)
-        # print('adeu', orig, dest, sep=' ')
         for i in range(1, len(path)):
             a = path[i-1]
             b = path[i]
@@ -89,12 +57,26 @@ def _set_congestion(tdata: Traffic_data, graph):
     return stupid_nodes
 
 
+pond = {0: 1.75, 1: 1, 2: 1.25, 3: 1.5, 4: 2, 5: 3, 6: float('inf'), None: 1}
+
+
 def build_igraph(graph, traffic_data):
     nx.set_edge_attributes(graph, name='congestion', values=None)
+    nx.set_edge_attributes(graph, name='itime', values=None)
+    # ox.add_edge_bearings(graph)
     stupid_nodes_2 = list()
     for data in traffic_data:
         test = _set_congestion(data, graph)
         stupid_nodes_2.append(test)
+    for _, info in graph.edges.items():
+        try:
+            speed = float(info['maxspeed'])/3.6
+        except KeyError:
+            speed = 30
+        except TypeError:
+            speed = sum(list(map(int, info['maxspeed'])))/len(info['maxspeed'])
+        # base_itime =
+        info['itime'] = (info['length']/speed)*pond[info['congestion']]
     return stupid_nodes_2
 
 
@@ -107,14 +89,15 @@ def build_ipath(igraph, origin, destiny):
         igraph, ox.geocode(origin)[1], ox.geocode(origin)[0])
     nn_destiny = ox.nearest_nodes(
         igraph, ox.geocode(destiny)[1], ox.geocode(destiny)[0])
-    
-    return ox.shortest_path(igraph,nn_origin,nn_destiny, weight="length")
+
+    return ox.shortest_path(igraph, nn_origin, nn_destiny, weight="itime")
+
 
 def plot_path(igraph, ipath, img_filename, size):
     m_bcn = StaticMap(size, size)
     try:
         origin_marker = CircleMarker((
-            igraph.nodes[ipath[0]]['x'], igraph.nodes[ipath[0]]['y']),'grey',9)
+            igraph.nodes[ipath[0]]['x'], igraph.nodes[ipath[0]]['y']), 'green', 9)
         destiny_marker = CircleMarker((
             igraph.nodes[ipath[-1]]['x'], igraph.nodes[ipath[-1]]['y']), 'green', 9)
         m_bcn.add_marker(origin_marker)
@@ -124,12 +107,13 @@ def plot_path(igraph, ipath, img_filename, size):
         print('There is no path')
     for i in range(0, len(ipath)):
         if (i + 1 < len(ipath)):
-            line = Line(((igraph.nodes[ipath[i]]['x'], igraph.nodes[ipath[i]]['y']), (igraph.nodes[ipath[i+1]]['x'], igraph.nodes[ipath[i+1]]['y'])), '#0884ff', 3)
+            line = Line(((igraph.nodes[ipath[i]]['x'], igraph.nodes[ipath[i]]['y']), (
+                igraph.nodes[ipath[i+1]]['x'], igraph.nodes[ipath[i+1]]['y'])), '#0884ff', 3)
             m_bcn.add_line(line)
-            
 
     image = m_bcn.render()
     image.save(img_filename)
+
 
 # %%
 non_nodes = build_igraph(graph, complete_data)
@@ -176,7 +160,7 @@ def test():
     igraph = build_igraph(graph, complete_data)
 
     # get 'intelligent path' between two addresses and plot it into a PNG image
-    ipath = get_shortest_path_with_ispeeds(
+    ipath = build_ipath(
         igraph, "Campus Nord", "Sagrada Família")
     plot_path(igraph, ipath, 'ipath.png', SIZE)
 
