@@ -1,3 +1,4 @@
 networkx==2.5.1
 osmnx==1.1.0
 staticmap==0.5.5
+scikit-learn==0.24.2
