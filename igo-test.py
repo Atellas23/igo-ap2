@@ -17,7 +17,7 @@ plot_graph(graph)
 plot_highways(highways)
 plot_congestions(complete_data)
 build_igraph(graph, complete_data)
-path = build_ipath(graph, 'FME', 'Velòdrom d\'Horta')
+path = build_ipath(graph, 'Zona Franca', 'Hospital de Sant Pau')
 plot_path(graph, path)
 
 # %%

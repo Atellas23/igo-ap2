@@ -168,8 +168,8 @@ def _set_congestion(tdata: Traffic_data, graph):
         dest = nn[i]
         try:
             path = ox.shortest_path(graph, orig, dest, weight='length')
-        except Exception as err:
-            print(err)
+        except Exception:
+            # print(err)
             try:
                 path = ox.shortest_path(graph, dest, orig, weight='length')
             except Exception as err2:
