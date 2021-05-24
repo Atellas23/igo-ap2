@@ -116,7 +116,7 @@ def plot_path(igraph, ipath, img_filename, size):
 
 
 # %%
-non_nodes = build_igraph(graph, complete_data)
+non_nodes = build_igraph(graph, complete_data, _debug_nodes=True)
 node_colors = list()
 for node in graph.nodes:
     if node in non_nodes:

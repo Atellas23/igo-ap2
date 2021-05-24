@@ -154,11 +154,12 @@ def plot_congestions(traffic_data, img_filename='congestion_plot.png',
     image.save(img_filename)
 
 
-def _set_congestion(tdata: Traffic_data, graph):
+def _set_congestion(tdata: Traffic_data, graph, _debug_nodes=False):
     coord = tdata.coordinates
     edge_nodes_lat = list()
     edge_nodes_lng = list()
-    # stupid_nodes = list()
+    if _debug_nodes:
+        err_nodes = list()
     for i in range(0, len(coord), 2):
         edge_nodes_lat.append(coord[i])
         edge_nodes_lng.append(coord[i+1])
@@ -168,32 +169,40 @@ def _set_congestion(tdata: Traffic_data, graph):
         dest = nn[i]
         try:
             path = ox.shortest_path(graph, orig, dest, weight='length')
-        except Exception:
-            # print(err)
+            for i in range(1, len(path)):
+                a = path[i-1]
+                b = path[i]
+                graph.adj[a][b][0]['congestion'] = tdata.state
+        except nx.NetworkXNoPath:
             try:
                 path = ox.shortest_path(graph, dest, orig, weight='length')
-            except Exception as err2:
-                print(err2)
-                # print('no he trobat cap camí entre {a} i {b} :('.format(a=orig, b=dest))
-                # stupid_nodes.append(orig)
-                # stupid_nodes.append(dest)
+                for i in range(1, len(path)):
+                    a = path[i-1]
+                    b = path[i]
+                    graph.adj[a][b][0]['congestion'] = tdata.state
+            except nx.NetworkXNoPath:
+                if _debug_nodes:
+                    print('No path has been found between nodes {} and {} in either direction.'.format(
+                        orig, dest))
+                    err_nodes.append(orig)
+                    err_nodes.append(dest)
                 pass
-        for i in range(1, len(path)):
-            a = path[i-1]
-            b = path[i]
-            graph.adj[a][b][0]['congestion'] = tdata.state
-    # return stupid_nodes
-    return
+    if _debug_nodes:
+        return err_nodes
+    else:
+        return
 
 
-def build_igraph(graph, traffic_data):
+def build_igraph(graph, traffic_data, _debug_nodes=False):
     nx.set_edge_attributes(graph, name='congestion', values=None)
     nx.set_edge_attributes(graph, name='itime', values=None)
     # ox.add_edge_bearings(graph)
-    # stupid_nodes_2 = list()
+    err_nodes = list()
     for data in traffic_data:
-        _set_congestion(data, graph)
-        # stupid_nodes_2.append(test)
+        r = _set_congestion(data, graph, _debug_nodes)
+        if _debug_nodes:
+            for node in r:
+                err_nodes.append(node)
     for _, info in graph.edges.items():
         try:
             speed = float(info['maxspeed'])/3.6
@@ -204,8 +213,10 @@ def build_igraph(graph, traffic_data):
         # base_itime =
         info['itime'] = (info['length']/speed) * \
             CONGESTION_PONDERATIONS[info['congestion']]
-    # return stupid_nodes_2
-    return
+    if _debug_nodes:
+        return err_nodes
+    else:
+        return
 
 
 def build_ipath(igraph, origin, destiny):
