@@ -51,22 +51,22 @@ CONGESTION_PONDERATIONS = {None: 1.75, 0: 1.75, 1: 1, 2: 1.25,
                            3: 1.5, 4: 2, 5: 3, 6: float('inf')}
 
 
-def exists_graph(graph_filename: str) -> bool:
+def exists_graph(filename: str) -> bool:
     '''Checks if a certain graph file exists within the current working
     directory.
     '''
     try:
-        open(graph_filename, 'rb')
+        open(filename, 'rb')
     except FileNotFoundError:
         return False
     return True
 
 
-def load_graph(graph_filename: str) -> nx.MultiDiGraph:
+def load_graph(filename: str) -> nx.MultiDiGraph:
     '''Loads a certain file from the current working directory, assuming
     it exists. This can be checked with the 'exists_graph' function.
     '''
-    with open(graph_filename, 'rb') as file:
+    with open(filename, 'rb') as file:
         graph = pickle.load(file)
     graph = nx.MultiDiGraph(incoming_graph_data=graph)
     return graph
@@ -168,7 +168,7 @@ def build_complete_traffic_data(highways: highway_list,
 
 
 def plot_highways(highways: highway_list,
-                  img_filename: str = 'highway_plot.png',
+                  filename: str = 'highway_plot.png',
                   size: int = 800) -> None:
     '''Plots the received Highway list into a map, giving the user
     insight about what streets exactly are documented in the internet
@@ -189,7 +189,7 @@ def plot_highways(highways: highway_list,
                         color='blue', width=2))
 
     image = city_map.render()
-    image.save(img_filename)
+    image.save(filename)
 
 
 def color_decide(state: int) -> str:
@@ -221,7 +221,7 @@ def color_decide(state: int) -> str:
 
 
 def plot_congestions(traffic_data: Traffic_data,
-                     img_filename: str = 'congestion_plot.png',
+                     filename: str = 'congestion_plot.png',
                      size: int = 800) -> None:
     '''Plots the received Traffic_data list into a map, giving the user
     insight about what is the state of the streets that are kept track
@@ -243,7 +243,7 @@ def plot_congestions(traffic_data: Traffic_data,
                         color=color_decide(highway.state), width=3))
 
     image = city_map.render()
-    image.save(img_filename)
+    image.save(filename)
 
 
 def _set_congestion(tdata: Traffic_data, graph: nx.MultiDiGraph,
@@ -325,7 +325,7 @@ def build_ipath(igraph: nx.MultiDiGraph, origin: str, destiny: str) -> list:
 
 
 def plot_path(igraph: nx.MultiDiGraph, ipath: list,
-              img_filename: str = 'path_plot.png',
+              filename: str = 'path_plot.png',
               size: int = 800) -> None:
     city_map = StaticMap(size, size)
     try:
@@ -345,4 +345,4 @@ def plot_path(igraph: nx.MultiDiGraph, ipath: list,
             city_map.add_line(line)
 
     image = city_map.render()
-    image.save(img_filename)
+    image.save(filename)
