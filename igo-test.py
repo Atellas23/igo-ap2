@@ -1,4 +1,8 @@
 # %%
+import xml.etree.ElementTree as ET
+from html.entities import name2codepoint
+from html.parser import HTMLParser
+from urllib import request
 from time import sleep
 
 from igo import *
@@ -186,3 +190,27 @@ for node, info in graph.nodes.items():
         sleep(10)
     print(10*'-')
 '''
+# %%
+
+
+def get_location_name(lat, lon):
+    request_url = 'https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}'.format(
+        lat=lat, lon=lon)
+    response = request.urlopen(request_url)
+    # print('response is:', response, sep=' ')
+    lines = [l.decode('utf-8') for l in response.readlines()]
+    result = ''.join(lines)
+    root = ET.fromstring(result)
+    return root[0].text
+    # https://nominatim.openstreetmap.org/reverse?lat=<value>&lon=<value>&<params>
+
+
+res = get_location_name(41.607083814675924, 2.5447618961334233)
+
+
+# %%
+# tree = ET.fromstring(res)
+# root = tree.getroot()
+root = ET.fromstring(res)
+
+# %%
