@@ -85,7 +85,7 @@ def author(update, context):
 
 def go(update, context):
     if time_to_update(complete_data[0]):
-        update_data()
+        update_data(complete_data)
     context.bot.send_message(chat_id=update.effective_chat.id,
                              text='iGo calculated the following minimal \
 path taking into account public congestion data.')
