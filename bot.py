@@ -207,14 +207,14 @@ def show_map(update, context):
         text=map_legend)
 
 
-# declara una constant amb el access token que llegeix de token.txt
+# declares a constant with the access token read from token.txt
 TOKEN = open('token.txt').read().strip()
 
-# crea objectes per treballar amb Telegram
+# creates objects to work with Telegram
 updater = Updater(token=TOKEN, use_context=True)
 dispatcher = updater.dispatcher
 
-# indica que quan el bot rebi la comanda /start s'executi la funció start
+# creates handlers for all the commands that we have decided to include
 dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(CommandHandler('help', help))
 dispatcher.add_handler(CommandHandler('author', author))
@@ -224,5 +224,5 @@ dispatcher.add_handler(CommandHandler('pos', pos))
 dispatcher.add_handler(CommandHandler('map', show_map))
 dispatcher.add_handler(MessageHandler(Filters.location, location_received))
 
-# engega el bot
+# starts the bot
 updater.start_polling()
