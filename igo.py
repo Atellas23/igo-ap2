@@ -50,6 +50,18 @@ graph_type = Union[nx.MultiDiGraph, nx.DiGraph]
 CONGESTION_PONDERATIONS = {None: 1.75, 0: 1.75, 1: 1, 2: 1.25,
                            3: 1.5, 4: 2, 5: 3, 6: float('inf')}
 
+# The following constant is used to decide the color of a certain
+# congestion state. Here is the color legend:
+# - If state is 'no information': grey
+# - If state is 'very fluid traffic': green
+# - If state is 'fluid traffic': greenish yellow
+# - If state is 'dense traffic': yellow
+# - If state is 'very dense traffic': orange
+# - If state is 'congested traffic': red
+# - If state is 'blocked street': navy blue
+COLORS = {0: '#8f8f8f', 1: '#03fc2c', 2: '#c2fc03', 3: '#fc8f00',
+          4: '#ff8000', 5: '#fc0000', 6: '#1c008a', None: '#1c008a'}
+
 
 def exists_graph(filename: str) -> bool:
     '''Checks if a certain graph file exists within the current working
@@ -68,6 +80,7 @@ def load_graph(filename: str) -> nx.MultiDiGraph:
     '''
     with open(filename, 'rb') as file:
         graph = pickle.load(file)
+    # MultiDiGraph allows plotting using OSMnx built-in functions
     graph = nx.MultiDiGraph(incoming_graph_data=graph)
     return graph
 
@@ -78,7 +91,6 @@ def download_graph(place: str) -> nx.MultiDiGraph:
     '''
     graph = ox.graph_from_place(place, network_type='drive',
                                 simplify=True)
-    # graph = ox.utils_graph.get_digraph(graph, weight='length')
     return graph
 
 
@@ -129,21 +141,17 @@ def download_congestions(congestions_url: str) -> congestion_list:
     return congestions
 
 
-def find_corresponding_congestion_data(highway: Highway,
-                                       congestions: congestion_list) \
-        -> Congestion:
+def _find_corresponding_congestion_data(highway: Highway,
+                                        congestions: congestion_list) -> Congestion:
     '''Given a Highway and a list of Congestions, finds the congestion
     corresponding to the Highway data using their ID attributes.
     '''
-    corresponding_congestion_data = None
-    for cong in congestions:
-        if cong.id == highway.id:
-            corresponding_congestion_data = cong
-            break
-    return corresponding_congestion_data
+    for congestion in congestions:
+        if congestion.id == highway.id:
+            return congestion
 
 
-def repack(highway: Highway, congestion: Congestion) -> Traffic_data:
+def _repack(highway: Highway, congestion: Congestion) -> Traffic_data:
     '''Utility function to convert a corresponding Highway, Congestion
     pair into a Traffic_data object.
     '''
@@ -153,16 +161,15 @@ def repack(highway: Highway, congestion: Congestion) -> Traffic_data:
 
 
 def build_complete_traffic_data(highways: highway_list,
-                                congestions: congestion_list) \
-        -> traffic_data_list:
-    '''Constructs a list of Traffic_data elements given corresponding
-    Highway and Congestion lists.
+                                congestions: congestion_list) -> traffic_data_list:
+    '''Utility function to construct a list of Traffic_data elements
+    given corresponding Highway and Congestion lists.
     '''
     complete_traffic_state_data = list()
     for highway in highways:
-        congestion = find_corresponding_congestion_data(highway,
-                                                        congestions)
-        repacked_data = repack(highway, congestion)
+        congestion = _find_corresponding_congestion_data(highway,
+                                                         congestions)
+        repacked_data = _repack(highway, congestion)
         complete_traffic_state_data.append(repacked_data)
     return complete_traffic_state_data
 
@@ -192,34 +199,6 @@ def plot_highways(highways: highway_list,
     image.save(filename)
 
 
-def color_decide(state: int) -> str:
-    '''Utility function to decide the corresponding color to a certain
-    congestion state. Here is the color legend based on the congestions
-    state:
-    - If state is 'no information': grey
-    - If state is 'very fluid traffic': green
-    - If state is 'fluid traffic': greenish yellow
-    - If state is 'dense traffic': yellow
-    - If state is 'very dense traffic': orange
-    - If state is 'congested traffic': red
-    - If state is 'blocked street': navy blue
-    '''
-    if state == 0:
-        return 'grey'
-    if state == 1:
-        return '#03fc2c'
-    if state == 2:
-        return '#c2fc03'
-    if state == 3:
-        return '#fc8f00'
-    if state == 4:
-        return '#ff8000'
-    if state == 5:
-        return '#fc0000'
-    if state == 6 or state is None:
-        return '#1c008a'
-
-
 def plot_congestions(traffic_data: Traffic_data,
                      filename: str = 'congestion_plot.png',
                      size: int = 800) -> None:
@@ -240,7 +219,7 @@ def plot_congestions(traffic_data: Traffic_data,
                     Line(coords=(
                         (highway.coordinates[i], highway.coordinates[i+1]),
                         (highway.coordinates[i+2], highway.coordinates[i+3])),
-                        color=color_decide(highway.state), width=3))
+                        color=COLORS[highway.state], width=3))
 
     image = city_map.render()
     image.save(filename)
@@ -248,12 +227,12 @@ def plot_congestions(traffic_data: Traffic_data,
 
 def _set_congestion(tdata: Traffic_data, graph: nx.MultiDiGraph,
                     _debug_nodes: bool = False) -> Optional[list]:
-    ''' Utility function that assings a congestion state to some of the edges in
+    '''Utility function that assings a congestion state to some of the edges in
     the OSMnx graph. For every highway from which we have congestion data we
     pick the end vertices and find the shortest path in the OSM graph, to every
     edge in the path we assign the congestion state of the highway. Can return a
-    list of the nodes that could not be reached if needed through the argument
-    '_debug_nodes'
+    list of the nodes that could not be reached in any way if needed through the
+    argument '_debug_nodes'.
     '''
     coord = tdata.coordinates
     edge_nodes_latitude = list()
@@ -267,6 +246,8 @@ def _set_congestion(tdata: Traffic_data, graph: nx.MultiDiGraph,
     for i in range(1, len(nn)):
         origin = nn[i-1]
         destination = nn[i]
+        # Now we do a try-except block, because sometimes there will be no
+        # directed path between a pair of nodes.
         try:
             path = ox.shortest_path(
                 graph, origin, destination, weight='length')
@@ -275,6 +256,9 @@ def _set_congestion(tdata: Traffic_data, graph: nx.MultiDiGraph,
                 b = path[i]
                 graph.adj[a][b][0]['congestion'] = tdata.state
         except nx.NetworkXNoPath:
+            # Now we do another try-except block, because sometimes
+            # there will be no directed path between a pair of nodes
+            # in either direction.
             try:
                 path = ox.shortest_path(
                     graph, destination, origin, weight='length')
@@ -284,8 +268,6 @@ def _set_congestion(tdata: Traffic_data, graph: nx.MultiDiGraph,
                     graph.adj[a][b][0]['congestion'] = tdata.state
             except nx.NetworkXNoPath:
                 if _debug_nodes:
-                    print('No path has been found between nodes {} and {} in either direction.'.format(
-                        origin, destination))
                     err_nodes.append(origin)
                     err_nodes.append(destination)
                 pass
@@ -297,27 +279,31 @@ def _set_congestion(tdata: Traffic_data, graph: nx.MultiDiGraph,
 
 def build_igraph(graph: nx.MultiDiGraph, traffic_data: traffic_data_list,
                  _debug_nodes: bool = False) -> Optional[list]:
-    ''' Utility function that adds the attributes 'congestion' and 'itime'
-    to every edge in the OSM graph. itime is calculated dividing the edge
-    length by the speed limit multiplied by a factor given by the edge
-    congestion.
+    '''Function that adds the attributes 'congestion' and 'itime' to
+    every edge in the OSM graph. itime is calculated dividing the edge
+    length by the speed limit, and then multiplied by a factor given by
+    the edge congestion.
     '''
     nx.set_edge_attributes(graph, name='congestion', values=None)
     nx.set_edge_attributes(graph, name='itime', values=None)
     err_nodes = list()
+    # We are doing double work here (in the following 2 for loops) for
+    # the sake of clarity when using the resulting graph of this function.
     for data in traffic_data:
-        failed_nodes = _set_congestion(data, graph, _debug_nodes)
+        temp_err_nodes = _set_congestion(data, graph, _debug_nodes)
         if _debug_nodes:
-            for node in failed_nodes:
+            for node in temp_err_nodes:
                 err_nodes.append(node)
     for _, info in graph.edges.items():
+        # Not all highways have a maxspeed value, or if they do, have a
+        # single value for it.
         try:
             speed = float(info['maxspeed'])/3.6
         except KeyError:
             speed = 30
         except TypeError:
+            # When multiple values for maxspeed exist, we use their mean
             speed = sum(list(map(int, info['maxspeed'])))/len(info['maxspeed'])
-        # base_itime =
         info['itime'] = (info['length']/speed) * \
             CONGESTION_PONDERATIONS[info['congestion']]
     if _debug_nodes:
@@ -332,6 +318,8 @@ def build_ipath(igraph: nx.MultiDiGraph, origin: str, destiny: str) -> list:
     '''
     origin = origin + ', Barcelona'
     destiny = destiny + ', Barcelona'
+    # ox.geocode returns coordinates reversed (longitude, latitude) so
+    # we invert them to be able to use them properly
     nn_origin = ox.nearest_nodes(
         igraph, ox.geocode(origin)[1], ox.geocode(origin)[0])
     nn_destiny = ox.nearest_nodes(
@@ -351,12 +339,12 @@ def plot_path(igraph: nx.MultiDiGraph, ipath: list,
         origin_marker = CircleMarker((
             igraph.nodes[ipath[0]]['x'], igraph.nodes[ipath[0]]['y']), 'green', 9)
         destiny_marker = CircleMarker((
-            igraph.nodes[ipath[-1]]['x'], igraph.nodes[ipath[-1]]['y']), 'green', 9)
+            igraph.nodes[ipath[-1]]['x'], igraph.nodes[ipath[-1]]['y']), 'red', 9)
         city_map.add_marker(origin_marker)
         city_map.add_marker(destiny_marker)
 
     except:
-        print('There is no path')
+        print('There is no path!')
     for i in range(0, len(ipath)):
         if (i + 1 < len(ipath)):
             line = Line(((igraph.nodes[ipath[i]]['x'], igraph.nodes[ipath[i]]['y']), (
